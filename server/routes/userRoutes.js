@@ -1,0 +1,10 @@
+const express = require("express");
+const { registerUser, loginUser, approveUser, getAllUsers } = require("../controllers/userController");
+const authorize = require("../middlewares/authActionMiddleware");
+const { authMiddleware } = require("../middlewares/authMiddleware");
+const router = express.Router();
+router.get("/", authMiddleware, authorize("manage", "all"), getAllUsers);
+router.post("/register", registerUser);
+router.post("/login", loginUser);
+router.post("/approve-user/:userId",authMiddleware, authorize("manage", "all"), approveUser);
+module.exports = router;
