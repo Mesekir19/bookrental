@@ -5,7 +5,7 @@ const bookRoutes = require("./routes/bookRoutes");
 const userRoutes = require("./routes/userRoutes");
 const rentRoutes = require("./routes/rentRoutes");
 const cors = require("cors");
-const helmet = require("helmet");
+// const helmet = require("helmet");
 
 require("dotenv").config();
 
@@ -13,7 +13,7 @@ require("dotenv").config();
 app.use(express.json());
 app.use(express.urlencoded({ extended: false }));
 app.use(cors({ origin: process.env.CORS_ORIGIN || "*" })); // Set CORS origin based on environment
-app.use(helmet()); // Security headers
+// app.use(helmet()); // Security headers
 
 // Routes
 app.use("/api/books", bookRoutes);
