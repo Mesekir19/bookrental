@@ -19,7 +19,7 @@ const BookTable = () => {
           headers: {
             Authorization: `Bearer ${localStorage.getItem("token")}`,
           },
-        }); // Replace with your API URL
+        });
         setBooks(response.data);
       } catch (err) {
         setError(err);
@@ -31,7 +31,9 @@ const BookTable = () => {
 
     fetchBooks();
   }, []);
+
   console.log("Books ", books);
+
   const handleApprove = async (bookId) => {
     try {
       const updatedBook = books.find((book) => book.id === bookId);
@@ -60,7 +62,7 @@ const BookTable = () => {
   const columns = useMemo(
     () => [
       { accessorKey: "quantity", header: "No.", size: 50 },
-      { accessorKey: "author", header: "Author", size: 100 },
+      { accessorKey: "author", header: "Author", size: 80 },
       {
         accessorKey: "ownerName",
         header: "Owner",
@@ -72,10 +74,11 @@ const BookTable = () => {
             <Typography variant="body2">{cell.getValue()}</Typography>
           </Box>
         ),
-        size: 150,
+        size: 100,
       },
-      { accessorKey: "category", header: "Category", size: 100 },
-      { accessorKey: "title", header: "Book Name", size: 150 },
+      { accessorKey: "category", header: "Category", size: 80 },
+      { accessorKey: "title", header: "Book Name", size: 100 },
+      { accessorKey: "location", header: "Location", size: 100 },
       {
         accessorKey: "available",
         header: "Status",
@@ -86,7 +89,7 @@ const BookTable = () => {
               alignItems: "center",
               backgroundColor: cell.getValue() ? "#c5fcd0" : "transparent",
               borderRadius: "12px",
-              padding: "4px 0",
+              padding: "2px 0",
               justifyContent: "space-evenly",
               width: "100%",
             }}
@@ -94,7 +97,11 @@ const BookTable = () => {
             {cell.getValue() && <CheckIcon color="success" fontSize="small" />}
             <Typography
               variant="body2"
-              sx={{ marginLeft: 1, color: cell.getValue() ? "green" : "black" }}
+              sx={{
+                marginLeft: 1,
+                color: cell.getValue() ? "green" : "black",
+                fontSize: "0.75rem",
+              }}
             >
               {cell.getValue() ? "Active" : "Inactive"}
             </Typography>
@@ -103,18 +110,18 @@ const BookTable = () => {
               color="success"
               size="small"
               sx={{
-                width: 60,
-                height: 24,
+                width: 50,
+                height: 20,
                 "& .MuiSwitch-thumb": {
-                  width: 16,
-                  height: 16,
-                  marginLeft: cell.getValue() ? 3 : 0,
+                  width: 14,
+                  height: 14,
+                  marginLeft: cell.getValue() ? 2 : 0,
                 },
               }}
             />
           </Box>
         ),
-        size: 150,
+        size: 80,
       },
       {
         accessorKey: "available",
@@ -123,16 +130,15 @@ const BookTable = () => {
           <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
             <Button
               variant="contained"
-              // color={row.original.available ? "primary" : "inherit"} // Adjust color based on availability
               size="small"
-              sx={{ bgcolor: row.original.available ? "#00abfe" : "gray"}}
+              sx={{ bgcolor: row.original.available ? "#00abfe" : "gray" }}
               onClick={() => handleApprove(row.original.id)}
             >
               {row.original.available ? "Approved" : "Approve"}
             </Button>
           </Box>
         ),
-        size: 150,
+        size: 80,
       },
     ],
     [books] // Depend on books to reflect updates
@@ -148,7 +154,10 @@ const BookTable = () => {
 
   return (
     <Box sx={{ padding: 1, pr: 0, borderRadius: "8px", mr: -1 }}>
-      <Paper elevation={3} sx={{ padding: 1, borderRadius: "8px" }}>
+      <Paper
+        elevation={3}
+        sx={{ padding: 1, borderRadius: "8px", maxWidth: "1200px" }}
+      >
         <Box sx={{ maxHeight: "81.5vh", overflowY: "auto", boxShadow: "none" }}>
           <Typography variant="h6">List of Books</Typography>
           <MaterialReactTable

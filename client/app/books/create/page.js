@@ -5,7 +5,7 @@ import UploadNewBook from "@/components/books/uploadBooks";
 
 const BooksPage = () => {
   return (
-    <ProtectedRoute>
+    <ProtectedRoute allowedRoles={["owner"]}>
       <DashboardLayout>
         <UploadNewBook />
       </DashboardLayout>

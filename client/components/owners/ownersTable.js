@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback, useMemo } from "react";
+import React, { useState, useEffect, useMemo } from "react";
 import {
   Box,
   Avatar,
@@ -6,15 +6,15 @@ import {
   IconButton,
   Paper,
   Typography,
-  Divider,
-  Chip,
   Switch,
   Snackbar,
   Alert,
+  Dialog,
+  DialogActions,
+  DialogContent,
+  DialogTitle,
+  DialogContentText,
 } from "@mui/material";
-import SearchIcon from "@mui/icons-material/Search";
-import ViewListIcon from "@mui/icons-material/ViewList";
-import TuneIcon from "@mui/icons-material/Tune";
 import VisibilityIcon from "@mui/icons-material/Visibility";
 import DeleteIcon from "@mui/icons-material/Delete";
 import CheckIcon from "@mui/icons-material/Check";
@@ -29,69 +29,73 @@ const OwnerTable = () => {
   const [snackbarOpen, setSnackbarOpen] = useState(false);
   const [snackbarMessage, setSnackbarMessage] = useState("");
   const [loading, setLoading] = useState(true);
+  const [openConfirmDialog, setOpenConfirmDialog] = useState(false);
+  const [selectedOwnerId, setSelectedOwnerId] = useState(null);
 
- useEffect(() => {
-   const fetchData = async () => {
-     try {
-       const token = localStorage.getItem("token"); // Retrieve the token from localStorage
-       const response = await axios.get("http://localhost:5000/api/users", {
-         headers: {
-           Authorization: `Bearer ${token}`,
-         },
-       });
-       setData(response.data);
-       setLoading(false);
-     } catch (error) {
-       setSnackbarMessage("Failed to fetch data");
-       setSnackbarOpen(true);
-       setLoading(false);
-     }
-   };
-   fetchData();
- }, []);
+  useEffect(() => {
+    const fetchData = async () => {
+      try {
+        const token = localStorage.getItem("token"); // Retrieve the token from localStorage
+        const response = await axios.get("http://localhost:5000/api/users", {
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+        });
+        setData(response.data);
+        setLoading(false);
+      } catch (error) {
+        setSnackbarMessage("Failed to fetch data");
+        setSnackbarOpen(true);
+        setLoading(false);
+      }
+    };
+    fetchData();
+  }, []);
 
- const handleApprove = async (ownerId) => {
-   try {
-     const token = localStorage.getItem("token"); // Retrieve the token from localStorage
-     await axios.post(
-       `http://localhost:5000/api/users/approve-user/${ownerId}`,
-       {},
-       {
-         headers: {
-           Authorization: `Bearer ${token}`,
-         },
-       }
-     );
-     setData((prevData) =>
-       prevData.map((item) =>
-         item.id === ownerId ? { ...item, approved: true } : item
-       )
-     );
-     setSnackbarMessage("Owner approved successfully");
-     setSnackbarOpen(true);
-   } catch (error) {
-     setSnackbarMessage("Failed to approve owner");
-     setSnackbarOpen(true);
-   }
- };
+  const handleApprove = async (ownerId) => {
+    try {
+      const token = localStorage.getItem("token"); // Retrieve the token from localStorage
+      await axios.post(
+        `http://localhost:5000/api/users/approve-user/${ownerId}`,
+        {},
+        {
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+        }
+      );
+      setData((prevData) =>
+        prevData.map((item) =>
+          item.id === ownerId ? { ...item, approved: true } : item
+        )
+      );
+      setSnackbarMessage("Owner approved successfully");
+      setSnackbarOpen(true);
+    } catch (error) {
+      setSnackbarMessage("Failed to approve owner");
+      setSnackbarOpen(true);
+    }
+  };
 
- const handleDelete = async (ownerId) => {
-   try {
-     const token = localStorage.getItem("token"); // Retrieve the token from localStorage
-     await axios.delete(`http://localhost:5000/api/users/${ownerId}`, {
-       headers: {
-         Authorization: `Bearer ${token}`,
-       },
-     });
-     setData((prevData) => prevData.filter((item) => item.id !== ownerId));
-     setSnackbarMessage("Owner deleted successfully");
-     setSnackbarOpen(true);
-   } catch (error) {
-     setSnackbarMessage("Failed to delete owner");
-     setSnackbarOpen(true);
-   }
- };
-
+  const handleDelete = async () => {
+    try {
+      const token = localStorage.getItem("token"); // Retrieve the token from localStorage
+      await axios.delete(`http://localhost:5000/api/users/${selectedOwnerId}`, {
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      });
+      setData((prevData) =>
+        prevData.filter((item) => item.id !== selectedOwnerId)
+      );
+      setSnackbarMessage("Owner deleted successfully");
+      setSnackbarOpen(true);
+    } catch (error) {
+      setSnackbarMessage("Failed to delete owner");
+      setSnackbarOpen(true);
+    }
+    setOpenConfirmDialog(false);
+  };
 
   const handleStatusToggle = async (ownerId, currentStatus) => {
     try {
@@ -133,7 +137,7 @@ const OwnerTable = () => {
         ),
         size: 100,
       },
-      { accessorKey: "role", header: "Location", size: 150 },
+      { accessorKey: "location", header: "Location", size: 150 },
       {
         accessorKey: "status",
         header: "Status",
@@ -186,13 +190,15 @@ const OwnerTable = () => {
             </IconButton>
             <IconButton
               color="error"
-              onClick={() => handleDelete(row.original.id)}
+              onClick={() => {
+                setSelectedOwnerId(row.original.id);
+                setOpenConfirmDialog(true);
+              }}
             >
               <DeleteIcon fontSize="small" />
             </IconButton>
             <Button
               variant="contained"
-              // color={row.original.isApproved ? "primary" : "inherit"} // Adjust color based on isApproved
               size="small"
               sx={{ bgcolor: row.original.isApproved ? "#00abfe" : "gray" }}
               onClick={() => handleApprove(row.original.id)}
@@ -246,6 +252,29 @@ const OwnerTable = () => {
           />
         </Box>
       </Paper>
+
+      {/* Confirmation Dialog */}
+      <Dialog
+        open={openConfirmDialog}
+        onClose={() => setOpenConfirmDialog(false)}
+      >
+        <DialogTitle>{"Confirm Deletion"}</DialogTitle>
+        <DialogContent>
+          <DialogContentText>
+            Are you sure you want to delete this user? This action is not
+            reversible.
+          </DialogContentText>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setOpenConfirmDialog(false)} color="primary">
+            Cancel
+          </Button>
+          <Button onClick={handleDelete} color="secondary">
+            Confirm
+          </Button>
+        </DialogActions>
+      </Dialog>
+
       <Snackbar
         open={snackbarOpen}
         autoHideDuration={6000}

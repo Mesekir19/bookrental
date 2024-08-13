@@ -6,7 +6,7 @@ import DashboardLayout from "@/components/layouts/DashboardLayout";
 
 const BooksPage = () => {
   return (
-    <ProtectedRoute>
+    <ProtectedRoute allowedRoles={["admin"]}>
       <DashboardLayout>
         <Books />
       </DashboardLayout>

@@ -13,6 +13,7 @@ module.exports = (sequelize, DataTypes) => {
     {
       userId: DataTypes.INTEGER,
       bookId: DataTypes.INTEGER,
+      amount: DataTypes.FLOAT, // Add this line to include the amount field
       status: DataTypes.STRING, // "rented" or "returned"
     },
     {

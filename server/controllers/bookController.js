@@ -3,34 +3,49 @@ const { bookSchema } = require("../utils/validationSchemas");
 
 const { Book, User, Rental } = require("../models");
 const { Op } = require("sequelize");
+const moment = require("moment");
 
 const postBook = async (req, res) => {
   const ability = defineAbilityFor(req.user);
 
-  // Check if the user has permission to create books
   if (ability.cannot("create", "Book")) {
     return res.status(403).json({ error: "You are not allowed to post books" });
   }
 
   try {
-    // Fetch the owner from the database
+    console.log("jbdsj dhbsh dkj", req.body)
+    bookSchema.parse(req.body);
     const owner = await User.findByPk(req.user.id);
 
-    // Ensure the user is approved before posting the book
     if (!owner || !owner.isApproved) {
       return res
         .status(403)
         .json({ error: "You must be approved to post books" });
     }
 
-    // Create the book with initial status as not available
-    const book = await Book.create({
-      ...req.body,
-      ownerId: req.user.id,
-      available: false, // Initially not available until approved by admin
+    const existingBook = await Book.findOne({
+      where: {
+        title: req.body.title,
+        author: req.body.author,
+        ownerId: req.user.id,
+      },
     });
 
-    res.status(201).json(book);
+    if (existingBook) {
+      const updatedBook = await existingBook.update({
+        ...req.body,
+      });
+
+      return res.status(200).json(updatedBook);
+    } else {
+      const newBook = await Book.create({
+        ...req.body,
+        ownerId: req.user.id,
+        available: false,
+      });
+
+      return res.status(201).json(newBook);
+    }
   } catch (error) {
     res.status(400).json({ error: error.message });
   }
@@ -47,7 +62,8 @@ const approveBook = async (req, res) => {
       return res.status(404).json({ error: "Book not found" });
     }
 
-    // book.available = true;
+    bookSchema.pick({ available: true }).parse({ available });
+
     book.available = available;
 
     await book.save();
@@ -78,19 +94,43 @@ const getAvailableBooks = async (req, res) => {
     });
 
     const booksWithStatus = books.map((book) => {
-      const rentalStatus =
-        book.rentals && book.rentals.length > 0
-          ? book.rentals[0].status
-          : "free";
+      const rentedCount = book.rentals.filter(
+        (rental) => rental.status === "rented"
+      ).length;
 
-      return {
-        ...book.toJSON(),
-        ownerName: book.owner ? book.owner.name : null,
-        status: rentalStatus === "rented" ? "rented" : "free",
-      };
+      const isFree = book.quantity > rentedCount;
+
+      const freeBookInfo = isFree
+        ? {
+            ...book.toJSON(),
+            ownerName: book.owner ? book.owner.name : null,
+            status: "free",
+            availableCopies: book.quantity - rentedCount,
+            rentedCount: rentedCount,
+          }
+        : null;
+
+      const rentedBookInfo =
+        rentedCount > 0
+          ? {
+              ...book.toJSON(),
+              ownerName: book.owner ? book.owner.name : null,
+              status: "rented",
+              availableCopies: book.quantity - rentedCount,
+              rentedCount: rentedCount,
+            }
+          : null;
+
+      return { freeBookInfo, rentedBookInfo };
     });
 
-    res.status(200).json(booksWithStatus);
+    const allBooksWithStatus = booksWithStatus.flatMap(
+      ({ freeBookInfo, rentedBookInfo }) => {
+        return [freeBookInfo, rentedBookInfo].filter((info) => info !== null);
+      }
+    );
+
+    res.status(200).json(allBooksWithStatus);
   } catch (error) {
     res.status(400).json({ error: error.message });
   }
@@ -98,7 +138,7 @@ const getAvailableBooks = async (req, res) => {
 
 const getBooks = async (req, res) => {
   const { title, author, category } = req.query;
-  const userRole = req.user.role; // Assuming `role` is a property of `req.user`
+  const userRole = req.user.role;
 
   const where = {};
   if (title) where.title = { [Op.iLike]: `%${title}%` };
@@ -121,7 +161,7 @@ const getBooks = async (req, res) => {
             model: Rental,
             attributes: ["status"],
             as: "rentals",
-            required: false, // Include books even if they have no rentals
+            required: false,
           },
         ],
       });
@@ -129,7 +169,7 @@ const getBooks = async (req, res) => {
       books = await Book.findAll({
         where: {
           ...where,
-          ownerId: req.user.id, // Filter to only books owned by the user
+          ownerId: req.user.id,
         },
         include: [
           {
@@ -149,9 +189,7 @@ const getBooks = async (req, res) => {
       return res.status(403).json({ error: "Access denied" });
     }
 
-    // Map over books to include owner name and rental status
     const booksWithStatus = books.map((book) => {
-      // Assuming that there might be multiple rentals, use the first rental status or default to "free"
       const rentalStatus =
         book.rentals && book.rentals.length > 0
           ? book.rentals[0].status
@@ -170,37 +208,71 @@ const getBooks = async (req, res) => {
   }
 };
 
-// const getBooks = async (req, res) => {
-//   const { title, author, category } = req.query;
+const getBooksByUser = async (req, res) => {
+  try {
+    const books = await Book.findAll({
+      where: {
+        ownerId: req.user.id,
+      },
+      include: [
+        {
+          model: User,
+          attributes: ["name"],
+          as: "owner",
+        },
+        {
+          model: Rental,
+          attributes: ["status"],
+          as: "rentals",
+          required: false,
+        },
+      ],
+    });
 
-//   const where = {};
-//   if (title) where.title = { [Op.iLike]: `%${title}%` };
-//   if (author) where.author = { [Op.iLike]: `%${author}%` };
-//   if (category) where.category = category;
+    const booksWithStatus = books.map((book) => {
+      const rentedCount = book.rentals.filter(
+        (rental) => rental.status === "rented"
+      ).length;
 
-//   try {
-//     const books = await Book.findAll({
-//       where,
-//       include: [
-//         {
-//           model: User,
-//           attributes: ["name"], // Adjust based on the User model's attribute for the name
-//           as: "owner", // Ensure this matches the alias used in your association
-//         },
-//       ],
-//     });
+      const isFree = book.quantity > rentedCount;
 
-//     // Map over books to include owner name
-//     const booksWithOwner = books.map((book) => ({
-//       ...book.toJSON(),
-//       ownerName: book.owner ? book.owner.name : null,
-//     }));
+      const freeBookInfo = isFree
+        ? {
+            ...book.toJSON(),
+            ownerName: book.owner ? book.owner.name : null,
+            status: "free",
+            availableCopies: book.quantity - rentedCount,
+            rentedCount: rentedCount,
+          }
+        : null;
 
-//     res.status(200).json(booksWithOwner);
-//   } catch (error) {
-//     res.status(400).json({ error: error.message });
-//   }
-// };
+      const rentedBookInfo =
+        rentedCount > 0
+          ? {
+              ...book.toJSON(),
+              ownerName: book.owner ? book.owner.name : null,
+              status: "rented",
+              availableCopies: book.quantity - rentedCount,
+              rentedCount: rentedCount,
+            }
+          : null;
+
+      return { freeBookInfo, rentedBookInfo };
+    });
+
+    const allBooksWithStatus = booksWithStatus.flatMap(
+      ({ freeBookInfo, rentedBookInfo }) => {
+        return [freeBookInfo, rentedBookInfo].filter((info) => info !== null);
+      }
+    );
+
+    res.status(200).json(allBooksWithStatus);
+  } catch (error) {
+    res.status(400).json({ error: error.message });
+  }
+};
+
+
 const createBook = async (req, res) => {
   const ability = defineAbilityFor(req.user);
 
@@ -242,6 +314,7 @@ const updateBook = async (req, res) => {
     res.status(400).json({ error: error.message });
   }
 };
+
 const deleteBook = async (req, res) => {
   const ability = defineAbilityFor(req.user);
 
@@ -255,18 +328,226 @@ const deleteBook = async (req, res) => {
     }
 
     await book.destroy();
-    res.status(200).json({ message: "Book deleted" });
+    res.status(200).json({ message: "Book deleted successfully" });
+  } catch (error) {
+    res.status(400).json({ error: error.message });
+  }
+};
+const getWalletBalance = async (req, res) => {
+  try {
+    const userId = req.params.userId;
+
+    // Fetch the user
+    const user = await User.findByPk(userId);
+
+    if (!user) {
+      return res.status(404).json({ message: "User not found" });
+    }
+
+    const currentDate = moment();
+    const startOfMonth = currentDate.startOf("month").toDate();
+    const endOfMonth = currentDate.endOf("month").toDate();
+    const startOfWeek = currentDate.startOf("week").toDate();
+    const endOfWeek = currentDate.endOf("week").toDate();
+    const startOfDay = currentDate.startOf("day").toDate();
+    const endOfDay = currentDate.endOf("day").toDate();
+
+    const startOfLastMonth = moment()
+      .subtract(1, "month")
+      .startOf("month")
+      .toDate();
+    const endOfLastMonth = moment()
+      .subtract(1, "month")
+      .endOf("month")
+      .toDate();
+
+    const startOfLastWeek = moment()
+      .subtract(1, "week")
+      .startOf("week")
+      .toDate();
+    const endOfLastWeek = moment().subtract(1, "week").endOf("week").toDate();
+
+    const startOfYesterday = moment()
+      .subtract(1, "day")
+      .startOf("day")
+      .toDate();
+    const endOfYesterday = moment().subtract(1, "day").endOf("day").toDate();
+
+    console.log("Date Ranges:");
+    console.log("Start of Month:", startOfMonth);
+    console.log("End of Month:", endOfMonth);
+    console.log("Start of Week:", startOfWeek);
+    console.log("End of Week:", endOfWeek);
+    console.log("Start of Day:", startOfDay);
+    console.log("End of Day:", endOfDay);
+    console.log("Start of Last Month:", startOfLastMonth);
+    console.log("End of Last Month:", endOfLastMonth);
+    console.log("Start of Last Week:", startOfLastWeek);
+    console.log("End of Last Week:", endOfLastWeek);
+    console.log("Start of Yesterday:", startOfYesterday);
+    console.log("End of Yesterday:", endOfYesterday);
+
+    // Find all book IDs owned by the user
+    const booksOwned = await Book.findAll({
+      where: {
+        ownerId: userId,
+      },
+      attributes: ["id"], // Only select the book IDs
+    });
+
+    const bookIds = booksOwned.map((book) => book.id);
+
+    // Fetch rentals for the current periods
+    const currentMonthIncome =
+      (await Rental.sum("amount", {
+        where: {
+          bookId: {
+            [Op.in]: bookIds,
+          },
+          createdAt: {
+            [Op.gte]: startOfMonth,
+            [Op.lte]: endOfMonth,
+          },
+        },
+      })) || 0;
+
+    const currentWeekIncome =
+      (await Rental.sum("amount", {
+        where: {
+          bookId: {
+            [Op.in]: bookIds,
+          },
+          createdAt: {
+            [Op.gte]: startOfWeek,
+            [Op.lte]: endOfWeek,
+          },
+        },
+      })) || 0;
+
+    const currentDayIncome =
+      (await Rental.sum("amount", {
+        where: {
+          bookId: {
+            [Op.in]: bookIds,
+          },
+          createdAt: {
+            [Op.gte]: startOfDay,
+            [Op.lte]: endOfDay,
+          },
+        },
+      })) || 0;
+
+    // Fetch rentals for the previous periods
+    const lastMonthIncome =
+      (await Rental.sum("amount", {
+        where: {
+          bookId: {
+            [Op.in]: bookIds,
+          },
+          createdAt: {
+            [Op.gte]: startOfLastMonth,
+            [Op.lte]: endOfLastMonth,
+          },
+        },
+      })) || 0;
+
+    const lastWeekIncome =
+      (await Rental.sum("amount", {
+        where: {
+          bookId: {
+            [Op.in]: bookIds,
+          },
+          createdAt: {
+            [Op.gte]: startOfLastWeek,
+            [Op.lte]: endOfLastWeek,
+          },
+        },
+      })) || 0;
+
+    const lastDayIncome =
+      (await Rental.sum("amount", {
+        where: {
+          bookId: {
+            [Op.in]: bookIds,
+          },
+          createdAt: {
+            [Op.gte]: startOfYesterday,
+            [Op.lte]: endOfYesterday,
+          },
+        },
+      })) || 0;
+
+    console.log("Income Data:");
+    console.log("Current Month Income:", currentMonthIncome);
+    console.log("Current Week Income:", currentWeekIncome);
+    console.log("Current Day Income:", currentDayIncome);
+    console.log("Last Month Income:", lastMonthIncome);
+    console.log("Last Week Income:", lastWeekIncome);
+    console.log("Last Day Income:", lastDayIncome);
+
+    // Calculate percentage change
+    const calculatePercentageChange = (current, previous) => {
+      if (previous === 0) return current === 0 ? 0 : 100;
+      return ((current - previous) / previous) * 100;
+    };
+
+    const monthPercentageChange = calculatePercentageChange(
+      currentMonthIncome,
+      lastMonthIncome
+    );
+    const weekPercentageChange = calculatePercentageChange(
+      currentWeekIncome,
+      lastWeekIncome
+    );
+    const dayPercentageChange = calculatePercentageChange(
+      currentDayIncome,
+      lastDayIncome
+    );
+
+    // Respond with the data
+    res.json({
+      walletBalance: user.walletBalance,
+      currentMonthIncome,
+      currentWeekIncome,
+      currentDayIncome,
+      monthPercentageChange,
+      weekPercentageChange,
+      dayPercentageChange,
+    });
+  } catch (error) {
+    console.error("Error fetching wallet balance:", error);
+    res.status(500).json({ message: "Internal server error" });
+  }
+};
+const approveBookStatus = async (req, res) => {
+  const ability = defineAbilityFor(req.user);
+
+  try {
+    bookSchema.pick({ available: true }).parse(req.body);
+    const book = await Book.findByPk(req.params.id);
+
+    if (ability.cannot("approve", book)) {
+      return res
+        .status(403)
+        .json({ error: "You are not allowed to approve this book" });
+    }
+
+    await book.update({ available: req.body.available });
+    res.status(200).json(book);
   } catch (error) {
     res.status(400).json({ error: error.message });
   }
 };
 
 module.exports = {
-  approveBook,
   postBook,
+  approveBook,
   getAvailableBooks,
   getBooks,
+  getBooksByUser,
   createBook,
   updateBook,
   deleteBook,
+  approveBookStatus,
+  getWalletBalance
 };

@@ -1,17 +1,28 @@
 const bcrypt = require("bcryptjs");
 const jwt = require("jsonwebtoken");
-const { User, Book, sequelize } = require("../models");
+const { User, sequelize } = require("../models");
 const { Op } = require("sequelize");
+const {
+  registerUserSchema,
+  loginUserSchema,
+  approveUserSchema,
+} = require("../utils/validationSchemas");
 
 const registerUser = async (req, res) => {
-  const { name,username, password, role } = req.body;
-
   try {
+    console.log("registered ", req.body);
+
+    registerUserSchema.parse(req.body);
+
+    const { name, username, password, role, phoneNumber, location } = req.body;
     const hashedPassword = await bcrypt.hash(password, 10);
+
     const newUser = await User.create({
       name,
-      email:username,
+      email: username,
       password: hashedPassword,
+      phone: phoneNumber,
+      location,
       role,
     });
 
@@ -20,10 +31,11 @@ const registerUser = async (req, res) => {
     res.status(400).json({ error: error.message });
   }
 };
-const approveUser = async (req, res) => {
-  const { userId } = req.params;
 
+const approveUser = async (req, res) => {
   try {
+    approveUserSchema.parse(req.params);
+    const { userId } = req.params;
     const user = await User.findByPk(userId);
 
     if (!user) {
@@ -38,11 +50,13 @@ const approveUser = async (req, res) => {
     res.status(400).json({ error: error.message });
   }
 };
-const loginUser = async (req, res) => {
-  const { username, password } = req.body;
 
+const loginUser = async (req, res) => {
   try {
-    const user = await User.findOne({ where: { email:username } });
+    loginUserSchema.parse(req.body);
+
+    const { username, password } = req.body;
+    const user = await User.findOne({ where: { email: username } });
 
     if (!user) {
       return res.status(404).json({ error: "User not found" });
@@ -65,6 +79,7 @@ const loginUser = async (req, res) => {
     res.status(400).json({ error: error.message });
   }
 };
+
 const getAllUsers = async (req, res) => {
   try {
     const users = await User.findAll({
@@ -73,6 +88,8 @@ const getAllUsers = async (req, res) => {
         "name",
         "email",
         "role",
+        "phone",
+        "location",
         "isApproved",
         [
           sequelize.literal(
@@ -96,8 +113,27 @@ const getAllUsers = async (req, res) => {
   }
 };
 
+const deleteUser = async (req, res) => {
+  try {
+    const { userId } = req.params;
+    const user = await User.findByPk(userId);
 
+    if (!user) {
+      return res.status(404).json({ error: "User not found" });
+    }
 
+    await user.destroy();
 
+    res.status(200).json({ message: "User deleted successfully" });
+  } catch (error) {
+    res.status(400).json({ error: error.message });
+  }
+};
 
-module.exports = { registerUser, approveUser, loginUser, getAllUsers };
+module.exports = {
+  registerUser,
+  approveUser,
+  loginUser,
+  getAllUsers,
+  deleteUser,
+};

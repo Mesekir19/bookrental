@@ -1,14 +1,61 @@
-import * as React from "react";
+import React, { useContext, useEffect, useState } from "react";
 import { PieChart } from "@mui/x-charts/PieChart";
-import { Box, Paper, Typography, Grid, Button } from "@mui/material";
+import { Box, Paper, Typography } from "@mui/material";
+import axios from "axios";
+import { UserContext } from "@/Context/UserContext";
 
-const data2 = [
-  { label: "Fiction", value: 54 },
-  { label: "Self Help", value: 20 },
-  { label: "Business", value: 26 },
-];
+const colorMapping = {
+  Fiction: "#f44336",
+  "Self Help": "#3f51b5",
+  Business: "#ffeb3b",
+  Science: "#4caf50",
+  History: "#ff9800",
+  // Add more categories and colors as needed
+};
 
-export default function AvailableBooks() {
+const AvailableBooks = () => {
+  const { userRole } = useContext(UserContext);
+  const [data, setData] = useState([]);
+
+  useEffect(() => {
+    fetchData();
+  }, []);
+
+  const fetchData = async () => {
+    try {
+      const url =
+        userRole === "admin"
+          ? "http://localhost:5000/api/books/available-books"
+          : "http://localhost:5000/api/books/by-user";
+      const response = await axios.get(url, {
+        headers: {
+          Authorization: `Bearer ${localStorage.getItem("token")}`,
+        },
+      });
+      const processedData = processCategoryData(response.data);
+      setData(processedData);
+    } catch (error) {
+      console.error("Error fetching data:", error);
+    }
+  };
+
+  const processCategoryData = (books) => {
+    const categoryCounts = books.reduce((acc, book) => {
+      const { category } = book;
+      if (category in acc) {
+        acc[category] += 1;
+      } else {
+        acc[category] = 1;
+      }
+      return acc;
+    }, {});
+
+    return Object.entries(categoryCounts).map(([label, value]) => ({
+      label,
+      value,
+    }));
+  };
+
   return (
     <Paper sx={{ p: 2 }}>
       <Box
@@ -41,7 +88,10 @@ export default function AvailableBooks() {
       <PieChart
         series={[
           {
-            data: data2,
+            data: data.map((item) => ({
+              ...item,
+              color: colorMapping[item.label] || "#ccc", // Default color if not mapped
+            })),
             innerRadius: 60,
             outerRadius: 80,
             cx: 110,
@@ -54,14 +104,14 @@ export default function AvailableBooks() {
         }}
       />
       <Box sx={{ mt: "-20px" }}>
-        {data2.map((item, index) => (
-          <Box item key={index} sx={{ display: "flex", alignItems: "center" }}>
+        {data.map((item, index) => (
+          <Box key={index} sx={{ display: "flex", alignItems: "center" }}>
             <Box
               sx={{
                 width: 12,
                 height: 12,
                 borderRadius: "50%",
-                bgcolor: ["#f44336", "#3f51b5", "#ffeb3b"][index],
+                bgcolor: colorMapping[item.label] || "#ccc", // Default color if not mapped
                 mr: 1,
               }}
             />
@@ -80,4 +130,6 @@ export default function AvailableBooks() {
       </Box>
     </Paper>
   );
-}
+};
+
+export default AvailableBooks;

@@ -8,9 +8,9 @@ const HomePage = () => {
   const router = useRouter();
 
   return (
-    <ProtectedRoute>
+    <ProtectedRoute allowedRoles={["admin","owner"]}>
       <DashboardLayout>
-        <Dashboard/>
+        <Dashboard />
       </DashboardLayout>
     </ProtectedRoute>
   );

@@ -35,7 +35,7 @@ const Sidebar = ({ userRole, open, onToggle }) => {
 
   const handleLoginToggle = () => {
     const loginPath =
-      userRole === "admin" ? "/auth/login-owner" : "/auth/login-admin";
+      userRole === "admin" ? "/auth/login" : "/auth/login";
     localStorage.removeItem("token");
     router.push(loginPath);
   };

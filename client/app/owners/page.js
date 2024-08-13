@@ -5,7 +5,7 @@ import DashboardLayout from "@/components/layouts/DashboardLayout";
 
 const OwnersPage = () => {
   return (
-    <ProtectedRoute>
+    <ProtectedRoute allowedRoles={["admin"]}>
       <DashboardLayout>
         <OwnerTable />
       </DashboardLayout>

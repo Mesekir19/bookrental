@@ -22,7 +22,7 @@ export default function Register() {
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
   const [location, setLocation] = useState("");
-  const [phoneNumber, setPhoneNumber] = useState("");
+  const [phoneNumber, setPhoneNumber] = useState(0);
   const [rememberMe, setRememberMe] = useState(false);
   const [role, setRole] = useState("user");
   const router = useRouter();
@@ -181,12 +181,13 @@ export default function Register() {
                 margin="dense"
                 required
                 fullWidth
+                placeholder="940404040"
                 size="small"
                 name="phoneNumber"
                 label="Phone Number"
                 id="phoneNumber"
                 value={phoneNumber}
-                onChange={(e) => setPhoneNumber(e.target.value)}
+                onChange={(e) => setPhoneNumber(parseInt(e.target.value, 10))}
               />
               <TextField
                 margin="dense"

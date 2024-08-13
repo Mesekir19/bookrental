@@ -56,10 +56,10 @@ const StatCard = ({
         </Typography>
       </Box>
       <Typography variant="body2" color="textSecondary">
-        Compared to {comparison}
+        Compared to {previousIncome}
       </Typography>
       <Typography variant="body2" sx={{ mt: 1 }}>
-        Last Month Income: {previousIncome}
+        Last Month Income: {comparison}
       </Typography>
     </Paper>
   );

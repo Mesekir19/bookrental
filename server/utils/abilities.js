@@ -13,9 +13,11 @@ function defineAbilityFor(user) {
     can("read", "Book");
     can("create", "Book");
     can("update", "Book", { ownerId: user.id });
-    cannot("delete", "Book");
+    can("delete", "Book", { ownerId: user.id });
   } else {
     can("read", "Book", { available: true });
+    can("rent", "Book", { available: true });
+
   }
 
   return build();
